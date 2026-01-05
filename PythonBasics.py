@@ -73,3 +73,44 @@ print("Total:", total)
 print("Average:", average)
 print("Result:", result)'''
 
+# try:
+#     num = int(input("Enter number: "))
+#     result = 10 / num
+
+# except Exception as e:
+#     print("Error:", e)
+
+# else:
+#     print("Result:", result)
+
+# finally:
+#     print("Program finished")
+
+# class Student:
+#     def __init__(self, name, age):
+#         self.name = name
+#         self.age = age
+
+# s1 = Student("Rahul", 20)
+
+# print(s1.name)
+# print(s1.age)
+
+# class Student:
+#     def __init__(self, name, marks):
+#         self.name = name
+#         self.marks = marks
+
+#     def greet(self):
+#         print("Hello,", self.name)
+
+#     def result(self):
+#         print("Marks:", self.marks)
+
+# s1 = Student("Amit", 85)
+# s1.greet()
+# s1.result()
+
+'''Only variables created with self are shared across methods'''
+
+
