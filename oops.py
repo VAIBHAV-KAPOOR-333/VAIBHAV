@@ -79,10 +79,46 @@ print(student.getschool())
 student.info()'''
 
 
-
-class student:
-
+#Inheritance
+'''class A:
     def __init__(self):
-        
+        print("in A init")
+    def f1(self):
+        print("f1")
+    def f2(self):
+        print("f2")
+    
+class B(A):  
+    def __init__(self):
+        super().__init__()
+        print("in B init")          
+    def f3(self):          #single level
+        print("f3")
+    def f4(self):
+        print("f4")
+
+class C(B):                #multi level
+    def f5(self):
+        print("f5")
+
+a=A()
+b=B()
+c=C()
+
+a.f1()
+a.f2()
+
+b.f1()
+b.f2()
+b.f3()
+b.f4()
+
+c.f1()
+c.f2()
+c.f3()
+c.f4()
+c.f5()'''
+
+
 
 
