@@ -79,6 +79,7 @@ print(student.getschool())
 student.info()'''
 
 
+
 #Inheritance
 '''class A:
     def __init__(self):
