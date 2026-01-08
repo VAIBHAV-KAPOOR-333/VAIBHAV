@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
 
 '''numbers = [1, 2, 3, 4]
 print(numbers)
@@ -65,6 +66,73 @@ print(df[df["Marks"] >= 80])'''
 # df = pd.read_csv("students.csv")
 # print(df)
 # df.to_csv("output.csv", index=False)
+
+# data = {
+#     "name": ["Amit", "Rahul", "Neha", "Pooja"],
+#     "age": [25, 30, 28, 22],
+#     "city": ["Delhi", "Mumbai", "Pune", "Chennai"]
+# }
+# df = pd.DataFrame(data, index=[101, 102, 103, 104])
+# print(df)
+'''# Select row with index label 102
+print(df.loc[102])
+# Select multiple rows
+print(df.loc[[101, 103]])
+# Select specific rows & columns
+print(df.loc[101:103, ["name", "age"]])'''
+
+'''# First row
+print(df.iloc[0])
+# First 2 rows
+print(df.iloc[0:2])
+# Rows and columns by position
+print(df.iloc[0:3, 0:2])'''
+
+# print(df.loc[df["age"] > 25])
+
+df = pd.read_csv("students.csv")
+'''print(df.head())     # first 5 rows
+print(df.tail())     # last 5 rows
+print(df.shape)      # rows, columns
+print(df.columns)    # column names
+print(df.info())     # data types'''
+
+# print(df[["Name", "Marks"]])
+
+# print(df[(df["Marks"] > 70) & (df["Age"] < 22)])
+
+# print(df.sort_values("Marks"))
+# print(df.sort_values("Marks", ascending=False))
+
+# print(df.isnull().sum())
+#print(df["Marks"].fillna(0, inplace=True))
+# print(df.dropna(inplace=True))
+# print(df)
+
+#print(df.groupby("Age")["Marks"].mean())
+
+'''df["Result"] = df["Marks"].apply(lambda x: "Pass" if x >= 40 else "Fail")
+print(df)
+
+plt.bar(df["Name"], df["Marks"])
+plt.show()'''
+
+#print(df.groupby("Age")["Marks"].agg(["mean", "max", "min"]))
+
+# df["Grade"] = df["Marks"].apply(
+#     lambda x: "A" if x >= 80 else "B")
+# print(df)
+
+# print(df.drop("Age", axis=1, inplace=True))
+# print(df)
+
+# print(df.duplicated())
+#df.drop_duplicates(inplace=True)
+# print(df)
+
+print(df["Age"].value_counts())
+
+
 
 
 
