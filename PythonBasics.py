@@ -113,4 +113,13 @@ print("Result:", result)'''
 
 '''Only variables created with self are shared across methods'''
 
+# numbers = [1, 2, 3, 4]
+# squared = list(map(lambda x: x**2, numbers))
+# print((squared))
+
+a = {"apple", "banana", "cherry"}
+b = {"google", "microsoft", "apple"}
+c = {"cherry", "micra", "bluebird"}
+a.difference_update(b, c)
+print(a)
 
