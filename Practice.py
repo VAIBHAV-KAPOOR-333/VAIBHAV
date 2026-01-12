@@ -112,19 +112,19 @@ import pandas as pd
 
 # OR
 
-def unique_occurrences(arr):
-    count = {}
-    for num in arr:
-        if num in count:
-            count[num] += 1
-        else:
-            count[num] = 1
-    freq = list(count.values())
-    return True
-arr = list(map(int, input("Enter array elements separated by space: ").split()))
-result = unique_occurrences(arr)
-print("Array:", arr)
-print("Are occurrences unique?", result)
+# def unique_occurrences(arr):
+#     count = {}
+#     for num in arr:
+#         if num in count:
+#             count[num] += 1
+#         else:
+#             count[num] = 1
+#     freq = list(count.values())
+#     return True
+# arr = list(map(int, input("Enter array elements separated by space: ").split()))
+# result = unique_occurrences(arr)
+# print("Array:", arr)
+# print("Are occurrences unique?", result)
 
 
 
