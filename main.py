@@ -1,36 +1,34 @@
-from fastapi import FastAPI
-from models import Register
+from fastapi import FastAPI, Depends
+from sqlalchemy.orm import Session
 
-app=FastAPI()
-
-
-registration=[
-    Register(id=3, name='vk', phone=9876543210, address='mohali'),
-    Register(id=1, name='kt', phone=1234567890, address='pkl'),
-    Register(id=2, name='kk', phone=1234567890, address='pkl')
-]
+from database import SessionLocal
+from models import User
+from schemas import UserCreate, UserResponse
 
 
-@app.get("/")
-def greet():
-    return {"message": "hello world"}
+# models.Base.metadata.create_all(bind=engine)
 
+app = FastAPI()
 
-@app.get("/regis")
-def reg():
-    return registration
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
+@app.post("/users", response_model=UserResponse)
+def create_user(user: UserCreate, db: Session = Depends(get_db)):
 
-@app.get("/regist/{id}")
-def get_reg_by_id(id: int):
-    for regist in registration:
-        if regist.id == id:
-            return regist
-    return {"error": "not registered id"}
+    new_user = User(
+        name=user.name,
+        email=user.email,
+        password=user.password
+    )
 
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
 
-@app.post("/register")
-def add_reg(r: Register):
-    registration.append(r)
-    return r
+    return new_user
 
