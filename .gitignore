@@ -2,6 +2,6 @@ requirements.txt
 static/
 templates/
 venv/
-
+media/
 
 
