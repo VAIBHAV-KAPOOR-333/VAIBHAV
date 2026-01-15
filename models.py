@@ -1,7 +1,6 @@
-# models.py
-from sqlalchemy import Column, Integer, String, Boolean, DateTime
-from sqlalchemy.sql import func
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, text
 from database import Base
+
 
 class User(Base):
     __tablename__ = "users"
@@ -12,14 +11,20 @@ class User(Base):
     email = Column(String(100), unique=True, nullable=False, index=True)
     password = Column(String(255), nullable=False)
 
-    phone = Column(String(10), nullable=False, unique=True)
-    address = Column(String(255), nullable=True)
-    dp = Column(String(255), nullable=True)  # stores image path
+    phone = Column(Integer, nullable=False, unique=True)
+    address = Column(String(255), nullable=False)  # 👈 compulsory
+    dp = Column(String(255), nullable=False)       # 👈 compulsory
 
-    is_active = Column(Boolean, default=True, index=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    is_active = Column(Boolean, nullable=False, server_default=text("1"))
+
+    created_at = Column(
+        DateTime,
+        nullable=False,
+        server_default=text("CURRENT_TIMESTAMP"),
+    )
+
     updated_at = Column(
-        DateTime(timezone=True),
-        server_default=func.now(),
-        onupdate=func.now()
+        DateTime,
+        nullable=False,
+        server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP"),
     )

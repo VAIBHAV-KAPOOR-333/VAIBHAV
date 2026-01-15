@@ -1,22 +1,46 @@
+# main.py
 import os
 import shutil
-from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Depends
+from typing import cast
+
+from fastapi import (
+    FastAPI,
+    Depends,
+    HTTPException,
+    UploadFile,
+    File,
+    Form
+)
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 
 from database import SessionLocal
 from models import User
-from schemas import UserResponse
-from security import hash_password
+from schemas import (
+    UserResponse,
+    LoginRequest,
+    LoginResponse
+)
+from security import hash_password, verify_password
+from auth import create_access_token, create_refresh_token
 
-app = FastAPI()
+
+# --------------------------------------------------
+# App setup
+# --------------------------------------------------
+
+app = FastAPI(title="FastAPI User Management")
 
 MEDIA_DIR = "media"
 os.makedirs(MEDIA_DIR, exist_ok=True)
 
-# Serve media files
+# Serve uploaded images
 app.mount("/media", StaticFiles(directory=MEDIA_DIR), name="media")
 
+
+# --------------------------------------------------
+# Database dependency
+# --------------------------------------------------
 
 def get_db():
     db = SessionLocal()
@@ -26,53 +50,88 @@ def get_db():
         db.close()
 
 
+# --------------------------------------------------
+# Create user (with profile image)
+# --------------------------------------------------
+
 @app.post("/users", response_model=UserResponse)
 async def create_user(
     name: str = Form(...),
     email: str = Form(...),
     password: str = Form(...),
     phone: str = Form(...),
-    address: str | None = Form(None),
+    address: str = Form(...),
     dp: UploadFile | None = File(None),
     db: Session = Depends(get_db)
 ):
-    # Check email
+    # ---------- Phone validation ----------
+    if not phone.isdigit() or len(phone) != 10:
+        raise HTTPException(
+            status_code=400,
+            detail="Phone must be exactly 10 digits"
+        )
+
+    # ---------- Uniqueness checks ----------
     if db.query(User).filter(User.email == email).first():
         raise HTTPException(status_code=400, detail="Email already registered")
 
-    # Check phone
-    if db.query(User).filter(User.phone == phone).first():
+    if db.query(User).filter(User.phone == int(phone)).first():
         raise HTTPException(status_code=400, detail="Phone already registered")
 
-    dp_path = None
-
-    # Save image
+    # ---------- Image upload ----------
+    dp_url = None
     if dp:
-        if dp.content_type not in ["image/jpeg", "image/png"]:
-            raise HTTPException(status_code=400, detail="Only JPG/PNG allowed")
+        if dp.content_type not in ("image/jpeg", "image/png"):
+            raise HTTPException(
+                status_code=400,
+                detail="Only JPG or PNG images allowed"
+            )
 
         filename = f"{email}_{dp.filename}"
-        dp_path = os.path.join(MEDIA_DIR, filename)
+        file_path = os.path.join(MEDIA_DIR, filename)
 
-        with open(dp_path, "wb") as buffer:
+        with open(file_path, "wb") as buffer:
             shutil.copyfileobj(dp.file, buffer)
 
-        # Change dp_path to URL
         dp_url = f"/media/{filename}"
-    else:
-        dp_url = None
 
-    new_user = User(
+    # ---------- Create user ----------
+    user = User(
         name=name,
         email=email,
         password=hash_password(password),
-        phone=phone,
+        phone=int(phone),
         address=address,
         dp=dp_url
     )
 
-    db.add(new_user)
+    db.add(user)
     db.commit()
-    db.refresh(new_user)
+    db.refresh(user)
 
-    return new_user
+    return user
+
+
+# --------------------------------------------------
+# Login
+# --------------------------------------------------
+
+@app.post("/login", response_model=LoginResponse)
+def login(
+    data: LoginRequest,
+    db: Session = Depends(get_db)
+):
+    user = db.query(User).filter(User.email == data.email).first()
+
+    if not user or not verify_password(data.password, cast(str, user.password)):
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid email or password"
+        )
+
+    return {
+        "access_token": create_access_token(cast(int, user.id)),
+        "refresh_token": create_refresh_token(cast(int, user.id)),
+        "token_type": "bearer",
+        "user": user
+    }
