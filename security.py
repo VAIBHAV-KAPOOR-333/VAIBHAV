@@ -12,3 +12,4 @@ def hash_password(password: str) -> str:
 
 def verify_password(plain: str, hashed: str) -> bool:
     return pwd_context.verify(_pre_hash(plain), hashed)
+

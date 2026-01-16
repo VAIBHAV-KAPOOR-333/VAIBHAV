@@ -1,30 +1,25 @@
+#models.py
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, text
 from database import Base
-
 
 class User(Base):
     __tablename__ = "users"
 
-    id = Column(Integer, primary_key=True, index=True)
-
+    id = Column(Integer, primary_key=True)
     name = Column(String(100), nullable=False)
-    email = Column(String(100), unique=True, nullable=False, index=True)
+    email = Column(String(100), unique=True, nullable=False)
     password = Column(String(255), nullable=False)
-
-    phone = Column(Integer, nullable=False, unique=True)
-    address = Column(String(255), nullable=False)  # 👈 compulsory
-    dp = Column(String(255), nullable=False)       # 👈 compulsory
-
-    is_active = Column(Boolean, nullable=False, server_default=text("1"))
+    phone = Column(String(15), unique=True, nullable=False)
+    address = Column(String(255), nullable=False)
+    dp = Column(String(255), nullable=False)
+    is_active = Column(Boolean, default=True, nullable=False)
 
     created_at = Column(
-        DateTime,
-        nullable=False,
-        server_default=text("CURRENT_TIMESTAMP"),
+        DateTime, server_default=text("CURRENT_TIMESTAMP"), nullable=False
     )
-
     updated_at = Column(
         DateTime,
-        nullable=False,
         server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP"),
+        nullable=False,
     )
+

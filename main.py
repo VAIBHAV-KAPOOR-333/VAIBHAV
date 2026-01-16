@@ -1,46 +1,24 @@
-# main.py
-import os
-import shutil
-from typing import cast
-
-from fastapi import (
-    FastAPI,
-    Depends,
-    HTTPException,
-    UploadFile,
-    File,
-    Form
-)
+#main.py
+import os, shutil
+from typing import List,cast
+from fastapi import FastAPI, Depends, HTTPException, UploadFile, File, Form
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 
 from database import SessionLocal
 from models import User
-from schemas import (
-    UserResponse,
-    LoginRequest,
-    LoginResponse
-)
+from schemas import LoginRequest, LoginResponse, UserPublic, UserResponse
 from security import hash_password, verify_password
-from auth import create_access_token, create_refresh_token
-
-
-# --------------------------------------------------
-# App setup
-# --------------------------------------------------
+from auth import create_access_token, create_refresh_token, decode_token
+from fastapi.security import OAuth2PasswordBearer
 
 app = FastAPI(title="FastAPI User Management")
 
 MEDIA_DIR = "media"
 os.makedirs(MEDIA_DIR, exist_ok=True)
-
-# Serve uploaded images
 app.mount("/media", StaticFiles(directory=MEDIA_DIR), name="media")
 
-
-# --------------------------------------------------
-# Database dependency
-# --------------------------------------------------
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 
 def get_db():
     db = SessionLocal()
@@ -49,89 +27,77 @@ def get_db():
     finally:
         db.close()
 
-
-# --------------------------------------------------
-# Create user (with profile image)
-# --------------------------------------------------
-
-@app.post("/users", response_model=UserResponse)
-async def create_user(
+# ---------------- REGISTER ----------------
+@app.post("/register", response_model=UserResponse)
+async def register(
     name: str = Form(...),
     email: str = Form(...),
     password: str = Form(...),
     phone: str = Form(...),
     address: str = Form(...),
     dp: UploadFile | None = File(None),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
-    # ---------- Phone validation ----------
     if not phone.isdigit() or len(phone) != 10:
-        raise HTTPException(
-            status_code=400,
-            detail="Phone must be exactly 10 digits"
-        )
+        raise HTTPException(400, "Phone must be 10 digits")
 
-    # ---------- Uniqueness checks ----------
     if db.query(User).filter(User.email == email).first():
-        raise HTTPException(status_code=400, detail="Email already registered")
+        raise HTTPException(400, "Email already exists")
 
     if db.query(User).filter(User.phone == int(phone)).first():
-        raise HTTPException(status_code=400, detail="Phone already registered")
+        raise HTTPException(400, "Phone already exists")
 
-    # ---------- Image upload ----------
-    dp_url = None
+    filename = None
     if dp:
-        if dp.content_type not in ("image/jpeg", "image/png"):
-            raise HTTPException(
-                status_code=400,
-                detail="Only JPG or PNG images allowed"
-            )
-
         filename = f"{email}_{dp.filename}"
-        file_path = os.path.join(MEDIA_DIR, filename)
+        with open(f"{MEDIA_DIR}/{filename}", "wb") as f:
+            shutil.copyfileobj(dp.file, f)
 
-        with open(file_path, "wb") as buffer:
-            shutil.copyfileobj(dp.file, buffer)
-
-        dp_url = f"/media/{filename}"
-
-    # ---------- Create user ----------
     user = User(
         name=name,
         email=email,
         password=hash_password(password),
         phone=int(phone),
         address=address,
-        dp=dp_url
+        dp=f"/media/{filename}" if filename else "",
     )
 
     db.add(user)
     db.commit()
     db.refresh(user)
-
     return user
 
-
-# --------------------------------------------------
-# Login
-# --------------------------------------------------
-
+# ---------------- LOGIN ----------------
 @app.post("/login", response_model=LoginResponse)
-def login(
-    data: LoginRequest,
-    db: Session = Depends(get_db)
-):
+def login(data: LoginRequest, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == data.email).first()
-
-    if not user or not verify_password(data.password, cast(str, user.password)):
-        raise HTTPException(
-            status_code=401,
-            detail="Invalid email or password"
-        )
+    if not user or not verify_password(data.password, cast(str,user.password)):
+        raise HTTPException(401, "Invalid credentials")
 
     return {
-        "access_token": create_access_token(cast(int, user.id)),
-        "refresh_token": create_refresh_token(cast(int, user.id)),
-        "token_type": "bearer",
-        "user": user
+        "access_token": create_access_token(cast(int,user.id)),
+        "refresh_token": create_refresh_token(cast(int,user.id)),
+        "user": user,
     }
+
+# ---------------- GET ALL USERS ----------------
+@app.get("/users", response_model=List[UserPublic])
+def get_users(
+    token: str = Depends(oauth2_scheme),
+    db: Session = Depends(get_db),
+):
+    decode_token(token)
+    user = db.query(User).all()
+    return user
+
+# ---------------- GET CURRENT USER ----------------
+@app.get("/users/me", response_model=UserPublic)
+def get_me(
+    token: str = Depends(oauth2_scheme),
+    db: Session = Depends(get_db),
+):
+    user_id = decode_token(token)
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(404, "User not found")
+    return user
