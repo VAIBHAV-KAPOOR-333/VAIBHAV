@@ -37,10 +37,10 @@ SMTP_PASSWORD = os.getenv("SMTP_PASSWORD") or ""
 FROM_EMAIL = os.getenv("FROM_EMAIL") or ""
 
 # -----------------------------
-# CREATE DATABASE TABLES
+# CREATE DATABASE TABLES WITHOUT ALEMBIC
 # -----------------------------
-Base.metadata.create_all(bind=engine)
-print("[DB] Tables created if not exist")
+# Base.metadata.create_all(bind=engine)
+# print("[DB] Tables created if not exist")
 
 # -----------------------------
 # FASTAPI APP

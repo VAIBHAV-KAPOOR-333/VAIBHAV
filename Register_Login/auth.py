@@ -13,8 +13,8 @@ from fastapi import HTTPException, status
 # Load environment variables
 load_dotenv()
 
-SECRET_KEY = os.getenv("SECRET_KEY")
-ALGORITHM = os.getenv("ALGORITHM")
+SECRET_KEY = os.getenv("SECRET_KEY") or "fallback-secret-key-change-in-production"
+ALGORITHM = os.getenv("ALGORITHM") or "HS256"
 
 def create_access_token(user_id: int):
     """
