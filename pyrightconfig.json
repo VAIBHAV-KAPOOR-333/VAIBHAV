@@ -1,7 +1,0 @@
-{
-  "typeCheckingMode": "basic",
-  "reportMissingImports": false,
-  "include": ["**/*.py"],
-  "exclude": ["**/alembic/**"]
-}
-
