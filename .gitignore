@@ -1,7 +1,5 @@
 requirements.txt
-static/
-templates/
-venv/
 media/
-flow.txt
-
+.env
+.venv/
+.env
