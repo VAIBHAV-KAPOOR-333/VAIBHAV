@@ -1,5 +1,5 @@
 requirements.txt
 media/
-.env
 .venv/
+env
 .env
