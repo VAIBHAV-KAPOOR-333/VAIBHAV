@@ -10,7 +10,8 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
 
 # Load environment variables from .env
-load_dotenv()
+env_path = os.path.join(os.path.dirname(__file__), ".env")
+load_dotenv(env_path)
 
 # DATABASE_URL is read from .env
 # Example format: mysql+pymysql://username:password@host:port/db_name

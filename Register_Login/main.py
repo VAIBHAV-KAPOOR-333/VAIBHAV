@@ -1,7 +1,160 @@
+# """
+# main.py
+# -------
+# FastAPI app with registration, login, password reset, and protected users route.
+# """
+
+# import os
+# import shutil
+# import random
+# import smtplib
+# from email.message import EmailMessage
+# from dotenv import load_dotenv
+# from typing import List
+# from fastapi import FastAPI, Depends, HTTPException, UploadFile, File, Form
+# from fastapi.staticfiles import StaticFiles
+# from fastapi.security import OAuth2PasswordBearer
+# from sqlalchemy.orm import Session
+# from database import SessionLocal, Base, engine
+# from models import User
+# from schemas import (
+#     LoginRequest, LoginResponse,
+#     UserPublic, UserResponse,
+#     ForgotPasswordRequest, ResetPasswordRequest
+# )
+# from security import hash_password, verify_password
+# from auth import create_access_token, create_refresh_token, decode_token
+
+# load_dotenv()
+
+# # -----------------------------
+# # EMAIL CONFIGURATION
+# # -----------------------------
+# SMTP_HOST = os.getenv("SMTP_HOST")
+# SMTP_PORT = int(os.getenv("SMTP_PORT") )
+# SMTP_USER = os.getenv("SMTP_USER")
+# SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
+# FROM_EMAIL = os.getenv("FROM_EMAIL")
+
+# # -----------------------------
+# # FASTAPI APP
+# # -----------------------------
+# app = FastAPI(title="FastAPI User Management")
+
+# # Serve profile images
+# MEDIA_DIR = "media"
+# os.makedirs(MEDIA_DIR, exist_ok=True)
+# app.mount("/media", StaticFiles(directory=MEDIA_DIR), name="media")
+
+# # OAuth2 token dependency
+# oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
+
+# # OTP store in memory
+# OTP_STORE: dict[str, str] = {}
+
+# # DB dependency
+# def get_db():
+#     db = SessionLocal()
+#     try:
+#         yield db
+#     finally:
+#         db.close()
+
+# # Email helper
+# def send_email(to_email: str, subject: str, body: str):
+#     msg = EmailMessage()
+#     msg["From"] = FROM_EMAIL
+#     msg["To"] = to_email
+#     msg["Subject"] = subject
+#     msg.set_content(body)
+#     try:
+#         with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
+#             server.starttls()
+#             server.login(SMTP_USER, SMTP_PASSWORD)
+#             server.send_message(msg)
+#     except Exception as e:
+#         print("[EMAIL ERROR]", e)
+
+# # -----------------------------
+# # ROUTES
+# # -----------------------------
+# @app.post("/register", response_model=UserResponse)
+# async def register(
+#     name: str = Form(...),
+#     email: str = Form(...),
+#     password: str = Form(...),
+#     phone: str = Form(...),
+#     address: str = Form(...),
+#     dp: UploadFile | None = File(None),
+#     db: Session = Depends(get_db),
+# ):
+#     if db.query(User).filter(User.email == email).first():
+#         raise HTTPException(400, "Email already exists")
+
+#     filename = None
+#     if dp:
+#         filename = f"{email}_{dp.filename}"
+#         with open(f"{MEDIA_DIR}/{filename}", "wb") as f:
+#             shutil.copyfileobj(dp.file, f)
+
+#     user = User(
+#         name=name,
+#         email=email,
+#         password=hash_password(password),
+#         phone=str(phone),
+#         address=address,
+#         dp=f"/media/{filename}" if filename else "",
+#     )
+#     db.add(user)
+#     db.commit()
+#     db.refresh(user)
+#     send_email(email, "Welcome!", f"Hi {name}, welcome to our app!")
+#     return user
+
+# @app.post("/login", response_model=LoginResponse)
+# def login(data: LoginRequest, db: Session = Depends(get_db)):
+#     user = db.query(User).filter(User.email == data.email).first()
+#     if not user or not verify_password(data.password, user.password):
+#         raise HTTPException(401, "Invalid credentials")
+#     return {
+#         "access_token": create_access_token(user.id),
+#         "refresh_token": create_refresh_token(user.id),
+#         "user": user,
+#     }
+
+# @app.post("/forgot-password")
+# def forgot_password(data: ForgotPasswordRequest, db: Session = Depends(get_db)):
+#     user = db.query(User).filter(User.email == data.email).first()
+#     if not user:
+#         raise HTTPException(404, "User not found")
+#     otp = str(random.randint(100000, 999999))
+#     OTP_STORE[data.email] = otp
+#     send_email(data.email, "Reset OTP", f"Hi {user.name}, your OTP is {otp}")
+#     return {"message": "OTP sent"}
+
+# @app.post("/reset-password")
+# def reset_password(data: ResetPasswordRequest, db: Session = Depends(get_db)):
+#     if OTP_STORE.get(data.email) != data.otp:
+#         raise HTTPException(400, "Invalid OTP")
+#     user = db.query(User).filter(User.email == data.email).first()
+#     if not user:
+#         raise HTTPException(404, "User not found")
+#     user.password = hash_password(data.new_password)
+#     db.commit()
+#     OTP_STORE.pop(data.email)
+#     return {"message": "Password reset successful"}
+
+# @app.get("/users", response_model=List[UserPublic])
+# def get_users(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+#     decode_token(token)
+#     return db.query(User).all()
+
+
+
 """
 main.py
 -------
-FastAPI application for user registration, login, password reset, and serving user info.
+FastAPI app with registration, login, password reset, and protected users route.
 """
 
 import os
@@ -10,14 +163,18 @@ import random
 import smtplib
 from email.message import EmailMessage
 from dotenv import load_dotenv
-from typing import List
+from typing import List, Dict
 
-from fastapi import FastAPI, Depends, HTTPException, UploadFile, File, Form
+from fastapi import (
+    FastAPI, Depends, HTTPException,
+    UploadFile, File, Form, status
+)
 from fastapi.staticfiles import StaticFiles
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 
-from database import SessionLocal, Base, engine
+from database import SessionLocal
 from models import User
 from schemas import (
     LoginRequest, LoginResponse,
@@ -27,46 +184,35 @@ from schemas import (
 from security import hash_password, verify_password
 from auth import create_access_token, create_refresh_token, decode_token
 
-# Load environment variables from .env file
 load_dotenv()
 
 # -----------------------------
 # EMAIL CONFIGURATION
 # -----------------------------
 SMTP_HOST = os.getenv("SMTP_HOST")
-SMTP_PORT = int(os.getenv("SMTP_PORT") or 0)
+SMTP_PORT = int(os.getenv("SMTP_PORT", 587))
 SMTP_USER = os.getenv("SMTP_USER")
 SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
 FROM_EMAIL = os.getenv("FROM_EMAIL")
-
-# -----------------------------
-# CREATE DATABASE TABLES (optional, Alembic preferred)
-# -----------------------------
-# Base.metadata.create_all(bind=engine)
 
 # -----------------------------
 # FASTAPI APP
 # -----------------------------
 app = FastAPI(title="FastAPI User Management")
 
-# Serve profile images via /media URL
 MEDIA_DIR = "media"
 os.makedirs(MEDIA_DIR, exist_ok=True)
 app.mount("/media", StaticFiles(directory=MEDIA_DIR), name="media")
 
-# OAuth2 dependency to read token from requests
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 
-# -----------------------------
-# In-memory OTP storage for password reset
-# -----------------------------
-OTP_STORE: dict[str, str] = {}
+# OTP store (in-memory)
+OTP_STORE: Dict[str, str] = {}
 
 # -----------------------------
-# DATABASE SESSION DEPENDENCY
+# DB DEPENDENCY
 # -----------------------------
 def get_db():
-    """Provide a database session to FastAPI endpoints"""
     db = SessionLocal()
     try:
         yield db
@@ -74,12 +220,13 @@ def get_db():
         db.close()
 
 # -----------------------------
-# HELPER FUNCTION TO SEND EMAIL
+# EMAIL HELPER (NON-BLOCKING SAFE)
 # -----------------------------
 def send_email(to_email: str, subject: str, body: str):
-    """
-    Send an email using SMTP.
-    """
+    if not all([SMTP_HOST, SMTP_USER, SMTP_PASSWORD, FROM_EMAIL]):
+        print("[EMAIL ERROR] SMTP not configured")
+        return
+
     msg = EmailMessage()
     msg["From"] = FROM_EMAIL
     msg["To"] = to_email
@@ -95,9 +242,10 @@ def send_email(to_email: str, subject: str, body: str):
         print("[EMAIL ERROR]", e)
 
 # -----------------------------
-# REGISTER NEW USER
+# ROUTES
 # -----------------------------
-@app.post("/register", response_model=UserResponse)
+
+@app.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 async def register(
     name: str = Form(...),
     email: str = Form(...),
@@ -107,18 +255,17 @@ async def register(
     dp: UploadFile | None = File(None),
     db: Session = Depends(get_db),
 ):
-    # Check if user already exists
+    # Pre-check email
     if db.query(User).filter(User.email == email).first():
-        raise HTTPException(400, "Email already exists")
+        raise HTTPException(status_code=409, detail="Email already exists")
 
-    # Save profile picture
     filename = None
     if dp:
         filename = f"{email}_{dp.filename}"
-        with open(f"{MEDIA_DIR}/{filename}", "wb") as f:
+        file_path = os.path.join(MEDIA_DIR, filename)
+        with open(file_path, "wb") as f:
             shutil.copyfileobj(dp.file, f)
 
-    # Create user
     user = User(
         name=name,
         email=email,
@@ -126,26 +273,37 @@ async def register(
         phone=str(phone),
         address=address,
         dp=f"/media/{filename}" if filename else "",
+        is_active=1,
     )
 
-    # Save user to DB
-    db.add(user)
-    db.commit()
-    db.refresh(user)
+    try:
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail="Email or phone number already exists"
+        )
 
-    # Send welcome email (non-blocking if fails)
+    # Email must NEVER break registration
     send_email(email, "Welcome!", f"Hi {name}, welcome to our app!")
 
     return user
 
 # -----------------------------
-# LOGIN USER
+# LOGIN
 # -----------------------------
 @app.post("/login", response_model=LoginResponse)
 def login(data: LoginRequest, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == data.email).first()
+
     if not user or not verify_password(data.password, user.password):
-        raise HTTPException(401, "Invalid credentials")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid credentials"
+        )
 
     return {
         "access_token": create_access_token(user.id),
@@ -160,37 +318,47 @@ def login(data: LoginRequest, db: Session = Depends(get_db)):
 def forgot_password(data: ForgotPasswordRequest, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == data.email).first()
     if not user:
-        raise HTTPException(404, "User not found")
+        raise HTTPException(status_code=404, detail="User not found")
 
-    # Generate OTP
     otp = str(random.randint(100000, 999999))
     OTP_STORE[data.email] = otp
 
-    # Send OTP email
-    send_email(data.email, "Reset OTP", f"Hi {user.name}, your OTP is {otp}")
-    return {"message": "OTP sent"}
+    send_email(
+        data.email,
+        "Password Reset OTP",
+        f"Hi {user.name}, your OTP is {otp}"
+    )
+
+    return {"message": "OTP sent successfully"}
 
 # -----------------------------
 # RESET PASSWORD
 # -----------------------------
 @app.post("/reset-password")
 def reset_password(data: ResetPasswordRequest, db: Session = Depends(get_db)):
-    if OTP_STORE.get(data.email) != data.otp:
-        raise HTTPException(400, "Invalid OTP")
+    stored_otp = OTP_STORE.get(data.email)
+
+    if not stored_otp or stored_otp != data.otp:
+        raise HTTPException(status_code=400, detail="Invalid or expired OTP")
 
     user = db.query(User).filter(User.email == data.email).first()
     if not user:
-        raise HTTPException(404, "User not found")
+        raise HTTPException(status_code=404, detail="User not found")
 
     user.password = hash_password(data.new_password)
     db.commit()
-    OTP_STORE.pop(data.email)
+
+    OTP_STORE.pop(data.email, None)
+
     return {"message": "Password reset successful"}
 
 # -----------------------------
-# GET ALL USERS (PROTECTED)
+# PROTECTED ROUTE
 # -----------------------------
 @app.get("/users", response_model=List[UserPublic])
-def get_users(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
-    decode_token(token)  # verify JWT
+def get_users(
+    token: str = Depends(oauth2_scheme),
+    db: Session = Depends(get_db),
+):
+    decode_token(token)
     return db.query(User).all()
