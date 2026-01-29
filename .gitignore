@@ -1,5 +1,6 @@
 requirements.txt
 media/
-.venv/
 env
 .env
+__pycache__/
+*.pyc
