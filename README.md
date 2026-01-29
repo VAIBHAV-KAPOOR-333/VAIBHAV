@@ -1,2 +1,0 @@
-# VAIBHAV
-My training File
