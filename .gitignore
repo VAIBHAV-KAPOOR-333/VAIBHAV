@@ -1,5 +1,3 @@
 requirements.txt
-media/
-.venv/
-env
-.env
+venv/
+
